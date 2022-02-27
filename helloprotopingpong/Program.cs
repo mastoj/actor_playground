@@ -4,8 +4,8 @@ using Proto;
 
 Console.WriteLine("Hello, World!");
 var system = new ActorSystem();
-var numberOfPingers = 64;
-var numberOfPings = 100000;
+var numberOfPingers = 2;
+var numberOfPings = 1000;
 
 var monitorProps = Props.FromProducer(() => new MonitorActor());
 var monitor = system.Root.SpawnNamed(monitorProps, "monitor");
@@ -22,6 +22,12 @@ public record Pong(int MessageCount);
 public class WorkerActor : IActor
 {
     private int MessageCount = 0;
+    private Random random;
+
+    public WorkerActor()
+    {
+        random = new Random();
+    }
     public Task ReceiveAsync(IContext context)
     {
         switch (context.Message)
@@ -29,6 +35,11 @@ public class WorkerActor : IActor
             case Ping ping:
                 Console.WriteLine($"Ping {MessageCount} from {ping.PingerId} ({context.Sender})");
                 context.Respond(new Pong(MessageCount++));
+                if(random.Next(0, 100) == 42)
+                {
+                    Console.WriteLine("==> I'm crashing here! <==");
+                    throw new Exception("Oh no, you got 42!");
+                }
                 break;
             default: 
                 Console.WriteLine($"==> Worker: Unknown message {context.Message}");
@@ -46,6 +57,12 @@ public class PingerActor : IActor
     private int sentPings;
     private int receivedPongs;
     private Stopwatch stopWatch;
+    private Props workerProps;
+
+    public PingerActor(Props workerProps)
+    {
+        this.workerProps = workerProps;
+    }
 
     public Task ReceiveAsync(IContext context)
     {
@@ -53,7 +70,6 @@ public class PingerActor : IActor
         switch (context.Message)
         {
             case Start start:
-                var workerProps = Props.FromProducer(() => new WorkerActor());
                 worker = context.Spawn(workerProps);
                 PingerNumber = start.PingerNumber;
                 numberOfPings = start.NumberOfPings;
@@ -79,7 +95,7 @@ public class PingerActor : IActor
                 }
                 break;
             default:
-                Console.WriteLine($"System message: {context.Message}, {worker}");
+                Console.WriteLine($"==> System message: {context.Message}, {worker}");
                 break;
         }
         return Task.CompletedTask;
@@ -96,7 +112,9 @@ public class MonitorActor : IActor
 
     public MonitorActor()
     {
-        pingerProps = Props.FromProducer(() => new PingerActor());
+        pingerProps = 
+            Props.FromProducer(() => new PingerActor(Props.FromProducer(() => new WorkerActor())))
+                .WithChildSupervisorStrategy(new OneForOneStrategy((pid, reason) => SupervisorDirective.Restart, 1000, null));
     }
 
     public Task ReceiveAsync(IContext context)
