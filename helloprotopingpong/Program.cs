@@ -5,8 +5,11 @@ Console.WriteLine("Hello, World!");
 var system = new ActorSystem();
 var props = Props.FromProducer(() => new WorkerActor());
 var worker = system.Root.Spawn(props);
-var response = await system.Root.RequestAsync<Pong>(worker, new Ping(), CancellationToken.None);
-Console.WriteLine($"Got response: {response}");
+for(int i = 0; i < 10; i++)
+{
+    var response = await system.Root.RequestAsync<Pong>(worker, new Ping(), CancellationToken.None);
+    Console.WriteLine($"Got response: {response}");
+}
 
 
 public record Ping;
@@ -19,7 +22,7 @@ public class WorkerActor : IActor
     {
         if (context.Message is Ping)
         {
-            Console.WriteLine("Ping");
+            Console.WriteLine($"Ping {MessageCount}");
             context.Respond(new Pong(MessageCount++));
         }
         return Task.CompletedTask;
