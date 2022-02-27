@@ -4,10 +4,8 @@ using Proto;
 
 Console.WriteLine("Hello, World!");
 var system = new ActorSystem();
-var props = Props.FromProducer(() => new WorkerActor());
-var worker = system.Root.SpawnNamed(props, "worker");
 var numberOfPingers = 64;
-var numberOfPings = 10000;
+var numberOfPings = 100000;
 
 var monitorProps = Props.FromProducer(() => new MonitorActor());
 var monitor = system.Root.SpawnNamed(monitorProps, "monitor");
@@ -43,6 +41,7 @@ public class WorkerActor : IActor
 public class PingerActor : IActor
 {
     private int numberOfPings;
+    private PID worker;
     private int PingerNumber;
     private int sentPings;
     private int receivedPongs;
@@ -50,11 +49,12 @@ public class PingerActor : IActor
 
     public Task ReceiveAsync(IContext context)
     {
-        var worker = PID.FromAddress(context.System.Address, "worker");
         var monitor = PID.FromAddress(context.System.Address, "monitor");
         switch (context.Message)
         {
             case Start start:
+                var workerProps = Props.FromProducer(() => new WorkerActor());
+                worker = context.Spawn(workerProps);
                 PingerNumber = start.PingerNumber;
                 numberOfPings = start.NumberOfPings;
                 Console.WriteLine($"Starting pinger: {start.PingerNumber}");
