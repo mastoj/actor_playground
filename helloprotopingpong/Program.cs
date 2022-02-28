@@ -4,8 +4,8 @@ using Proto;
 
 Console.WriteLine("Hello, World!");
 var system = new ActorSystem();
-var numberOfPingers = 2;
-var numberOfPings = 1000;
+var numberOfPingers = 64;
+var numberOfPings = 1000000;
 
 var monitorProps = Props.FromProducer(() => new MonitorActor());
 var monitor = system.Root.SpawnNamed(monitorProps, "monitor");
@@ -33,13 +33,7 @@ public class WorkerActor : IActor
         switch (context.Message)
         {
             case Ping ping:
-                Console.WriteLine($"Ping {MessageCount} from {ping.PingerId} ({context.Sender})");
                 context.Respond(new Pong(MessageCount++));
-                if(random.Next(0, 100) == 42)
-                {
-                    Console.WriteLine("==> I'm crashing here! <==");
-                    throw new Exception("Oh no, you got 42!");
-                }
                 break;
             default: 
                 Console.WriteLine($"==> Worker: Unknown message {context.Message}");
@@ -80,7 +74,6 @@ public class PingerActor : IActor
                 stopWatch.Start();
                 break;
             case Pong pong:
-                Console.WriteLine($"Pong {receivedPongs}: {pong.MessageCount} (Pinger {PingerNumber})");
                 receivedPongs++;
                 if(sentPings < numberOfPings) 
                 {
@@ -138,9 +131,9 @@ public class MonitorActor : IActor
                 if(stats.Count == numberOfPingers)
                 {
                     stopwatch.Stop();
-                    var total = stopwatch.ElapsedMilliseconds;
-                    var numberOfMessages = numberOfPingers * numberOfPings * 2;
-                    var messagesPerS = 1000 * numberOfMessages / total;
+                    long total = stopwatch.ElapsedMilliseconds;
+                    long numberOfMessages = numberOfPingers * numberOfPings * 2;
+                    long messagesPerS = 1000 * numberOfMessages / total;
                     context.Stop(context.Self);
                     Console.WriteLine($"=========================");
                     Console.WriteLine($"Total: {total} ms");
